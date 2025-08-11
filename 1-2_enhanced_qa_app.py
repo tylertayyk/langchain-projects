@@ -3,6 +3,7 @@ from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
 from langchain.memory import ConversationBufferWindowMemory
 from langchain_core.runnables import RunnablePassthrough
+from langchain_community.callbacks import get_openai_callback
 
 load_dotenv()
 
@@ -23,13 +24,19 @@ class IntelligentQA:
             | self.prompt
             | self.llm
         )
-    
+
     def ask(self, question):
-        response = self.chain.invoke({'question': question})
-        # Save to memory
-        self.memory.chat_memory.add_user_message(question)
-        self.memory.chat_memory.add_ai_message(response.content)
-        return response.content
+        try:
+            with get_openai_callback() as cb:
+                response = self.chain.invoke({'question': question})
+            # Save to memory
+            self.memory.chat_memory.add_user_message(question)
+            self.memory.chat_memory.add_ai_message(response.content)
+            print(f'Total cost: ${cb.total_cost:.4f}')
+            return response.content
+        except Exception as e:
+            print(f"Error: {e}")
+            return "Sorry, I couldn't process your request due to an error."   
 
     def clear_history(self):
         self.memory.clear()
